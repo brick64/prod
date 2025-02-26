@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+redis
+sqlmodel
+psycopg2-binary
+pytest
+httpx
+openai
+requests
+starlette_exporter==0.15.0
+python-multipart
+passlib
+jwt
