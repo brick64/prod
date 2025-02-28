@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 import secrets
 import jwt
 import os
+import base64
 from app.redis_session import redis_session
 from app.postgres_session import get_session
 from app.models import User
@@ -81,8 +82,13 @@ async def register(request: Request):
         login = xor_decrypt(login_encrypted, encryption_key)
         password = xor_decrypt(password_encrypted, encryption_key)
         
-        # Register the new user
+        # Check if the user already exists
         with next(get_session()) as session:
+            existing_user = session.query(User).filter(User.login == login).first()
+            if existing_user:
+                raise HTTPException(status_code=401, detail="Email already registered")
+            
+            # Register the new user
             user = User(login=login)
             user.set_password(password)
             session.add(user)
@@ -90,10 +96,18 @@ async def register(request: Request):
         
         # Return success status
         return {"status": "ok"}
-
+    
 def xor_decrypt(encrypted_text: str, key: str) -> str:
-    decrypted = ''.join(chr(ord(c) ^ ord(k)) for c, k in zip(encrypted_text, key))
-    return decrypted
+    # Decode the Base64 encoded string
+    encrypted_bytes = base64.b64decode(encrypted_text)
+    key_bytes = key.encode()
+
+    # Perform XOR decryption
+    decrypted_bytes = bytearray(len(encrypted_bytes))
+    for i in range(len(encrypted_bytes)):
+        decrypted_bytes[i] = encrypted_bytes[i] ^ key_bytes[i % len(key_bytes)]
+
+    return decrypted_bytes.decode()
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
